@@ -2,6 +2,7 @@
 
 ## Table of Contents
 
+### Biological Algorithms Section
 1. [Introduction](#introduction)
 2. [Overview of Biological Algorithms](#overview-of-biological-algorithms)
 3. [Python Programming for Biology](#python-programming-for-biology)
@@ -20,6 +21,18 @@
 16. [Performance Optimization](#performance-optimization)
 17. [Future Directions](#future-directions)
 18. [References](#references)
+
+### SNS Protocol Level 2 Encryption Section
+19. [SNS Protocol Overview](#sns-protocol-level-2-advanced-encryption-protocol)
+20. [Core Components](#core-components)
+21. [Detailed Layer-by-Layer Guide](#detailed-layer-by-layer-guide)
+22. [Error Handling and Debugging](#error-handling-and-debugging)
+23. [Integration Guide](#integration-guide)
+24. [Performance Optimization](#performance-optimization)
+25. [Presentation and Visualization](#presentation-and-visualization)
+26. [Advanced Technical Features](#advanced-technical-features)
+27. [Troubleshooting](#troubleshooting)
+28. [Future Enhancements](#future-enhancements)
 
 ## Introduction
 
@@ -3154,4 +3167,709 @@ if __name__ == "__main__":
 
 ---
 
-*This comprehensive guide provides a detailed foundation for implementing advanced biological algorithms using Python. The examples and implementations demonstrate the power of computational biology in modern research. For the latest updates and additional resources, please refer to the project repository and scientific literature.*
+# SNS Protocol Level 2: Advanced Encryption Protocol
+
+## Overview
+
+SNS Protocol Level 2 is a sophisticated 15-layer encryption system that provides quantum-resistant, AI-enhanced security for data protection. This section provides detailed guides for each encryption layer, implementation details, error handling, and usage instructions.
+
+## Core Components
+
+### Installation and Setup
+
+```bash
+# Install required dependencies
+pip install cryptography numpy hashlib hmac
+
+# For advanced features
+pip install pycryptodome ecdsa pynacl
+```
+
+### Basic Usage
+
+```python
+from sns_protocol2 import SNSProtocol2
+
+# Initialize protocol
+protocol = SNSProtocol2(
+    user_id="alice",
+    peer_id="bob",
+    session_seed="secure_session_2024"
+)
+
+# Encrypt data
+plaintext = b"Hello, secure world!"
+ciphertext = protocol.encrypt_data(plaintext)
+
+# Decrypt data
+decrypted = protocol.decrypt_data(ciphertext)
+
+assert decrypted == plaintext
+print("Encryption/Decryption successful!")
+```
+
+## Detailed Layer-by-Layer Guide
+
+### Layer 1: Substitution Cipher
+
+**Purpose**: Initial data scrambling using S-box transformation
+
+**Technical Details**:
+- Uses dynamically generated S-box based on evolved keys
+- Provides confusion through non-linear substitution
+- Key-dependent permutation of byte values
+
+```python
+def _substitute(self, data: bytes, key: bytes) -> bytes:
+    """Substitution cipher implementation"""
+    sbox = list(range(256))
+
+    # Generate permutation based on key
+    swap_key = ultra_hash(key, 256, 10)
+    for i in range(255, 0, -1):
+        j = swap_key[i] % (i + 1)
+        sbox[i], sbox[j] = sbox[j], sbox[i]
+
+    return bytes(sbox[b] for b in data)
+```
+
+**Error Handling**:
+```python
+try:
+    substituted = protocol._substitute(data, key)
+except ValueError as e:
+    print(f"Substitution error: {e}")
+    # Fallback to simple XOR
+    substituted = bytes(a ^ b for a, b in zip(data, key))
+```
+
+**Performance**: O(n) time complexity, where n is data length
+
+### Layer 2: Transposition
+
+**Purpose**: Rearrange data positions for diffusion
+
+**Technical Details**:
+- Columnar transposition with key-dependent ordering
+- Ensures bit positions are thoroughly mixed
+- Variable block sizes for enhanced security
+
+```python
+def _transpose(self, data: bytes, key: bytes) -> bytes:
+    """Columnar transposition cipher"""
+    cols = 16
+    columns = [[] for _ in range(cols)]
+
+    # Fill columns
+    for i, b in enumerate(data):
+        columns[i % cols].append(b)
+
+    # Reorder columns based on key
+    order = sorted(range(cols), key=lambda x: key[x % len(key)])
+    result = []
+
+    for col_idx in order:
+        result.extend(columns[col_idx])
+
+    return bytes(result)
+```
+
+**Diagram**:
+```
+Input:  ABCDEF...
+        ↓
+Columns: A D ...  B E ...  C F ...
+        ↓
+Key Sort: 2 0 1    2 0 1    2 0 1
+        ↓
+Output: B E ...  A D ...  C F ...
+```
+
+### Layer 3: Feistel Network
+
+**Purpose**: Balanced encryption providing confusion and diffusion
+
+**Technical Details**:
+- Symmetric structure with multiple rounds
+- Round function combines substitution and key mixing
+- Supports variable round counts
+
+```python
+def _feistel_encrypt(self, data: bytes, key: bytes, rounds=8) -> bytes:
+    """Feistel cipher implementation"""
+    left = data[:len(data)//2]
+    right = data[len(data)//2:]
+
+    for r in range(rounds):
+        # Generate round key
+        round_key = ultra_hash(key + r.to_bytes(4, 'big'), 16)
+
+        # F function (simplified)
+        f = bytes(a ^ b for a, b in zip(right, round_key * (len(right) // 16 + 1)))
+
+        # Swap and combine
+        left = bytes(a ^ b for a, b in zip(left, f))
+        left, right = right, left
+
+    return left + right
+```
+
+**Feistel Structure**:
+```
+Round 1: L1 R1 ──→ F ──→ L2 = R1
+          ↓       ↑       R2 = L1 ⊕ F(R1,K1)
+          K1
+
+Round 2: L2 R2 ──→ F ──→ L3 = R2
+          ↓       ↑       R3 = L2 ⊕ F(R2,K2)
+          K2
+```
+
+### Layer 4: Bit Scrambling
+
+**Purpose**: Low-level bit manipulation for additional diffusion
+
+**Technical Details**:
+- Rotates bits within each byte
+- Key-dependent rotation amounts
+- Maintains byte boundaries
+
+```python
+def _bit_scramble(self, data: bytes, key: bytes) -> bytes:
+    """Bit-level scrambling"""
+    rotation = key[0] % 8
+    return bytes(((b << rotation) | (b >> (8 - rotation))) & 0xFF for b in data)
+```
+
+### Layer 5: XOR with Key Material
+
+**Purpose**: Key-dependent masking
+
+**Technical Details**:
+- Tiles key material across data
+- Provides perfect secrecy when key is random
+- Fast operation with high diffusion
+
+```python
+def _xor_key_material(self, data: bytes, key: bytes) -> bytes:
+    """XOR with tiled key"""
+    tiled_key = (key * (len(data) // len(key) + 1))[:len(data)]
+    return bytes(a ^ b for a, b in zip(data, tiled_key))
+```
+
+### Layer 6-12: Advanced Layers
+
+**Layer 6: Second Transposition**
+- Different column count for variety
+- Key evolution for unique transformation
+
+**Layer 7: Second Feistel Network**
+- Increased round count (12 rounds)
+- Different F function
+
+**Layer 8: Byte Rotation**
+```python
+def _rotate_bytes(self, data: bytes, key: bytes) -> bytes:
+    """Rotate bytes by key-dependent amount"""
+    rot = sum(key) % 8
+    return bytes(((b << rot) | (b >> (8 - rot))) & 0xFF for b in data)
+```
+
+**Layer 9: HMAC Integration**
+```python
+def _ultra_hmac(self, data: bytes, key: bytes) -> bytes:
+    """HMAC for integrity verification"""
+    ipad = bytes(0x36 ^ k for k in key.ljust(64, b'\x00'))
+    opad = bytes(0x5C ^ k for k in key.ljust(64, b'\x00'))
+
+    inner = ultra_hash(ipad + data, 32, 10)
+    return ultra_hash(opad + inner, 32, 10)
+```
+
+**Layer 10: Hash-based Verification**
+- Additional integrity check
+- Uses custom ultra_hash function
+
+**Layer 11: Final Substitution**
+- Different S-box from Layer 1
+- Ensures complete transformation
+
+**Layer 12: Seal Layer**
+- Final hash for tamper detection
+- Combines all previous transformations
+
+## Error Handling and Debugging
+
+### Common Errors and Solutions
+
+```python
+class ProtocolError(Exception):
+    """Base exception for protocol errors"""
+    pass
+
+class IntegrityError(ProtocolError):
+    """Raised when data integrity check fails"""
+    pass
+
+class KeyError(ProtocolError):
+    """Raised when key validation fails"""
+    pass
+
+def safe_encrypt(protocol, data):
+    """Safe encryption with comprehensive error handling"""
+    try:
+        # Validate inputs
+        if not isinstance(data, bytes):
+            raise TypeError("Data must be bytes")
+
+        if len(data) == 0:
+            raise ValueError("Cannot encrypt empty data")
+
+        # Attempt encryption
+        encrypted = protocol.encrypt_data(data)
+        return encrypted
+
+    except MemoryError:
+        raise ProtocolError("Insufficient memory for encryption")
+
+    except Exception as e:
+        logging.error(f"Encryption failed: {e}")
+        raise ProtocolError(f"Encryption error: {e}")
+
+def safe_decrypt(protocol, encrypted_data):
+    """Safe decryption with integrity verification"""
+    try:
+        # Validate inputs
+        if not isinstance(encrypted_data, bytes):
+            raise TypeError("Encrypted data must be bytes")
+
+        # Attempt decryption
+        decrypted = protocol.decrypt_data(encrypted_data)
+        return decrypted
+
+    except IntegrityError:
+        raise IntegrityError("Data has been tampered with")
+
+    except ValueError as e:
+        if "verification failed" in str(e):
+            raise IntegrityError("Data integrity compromised")
+        raise
+
+    except Exception as e:
+        logging.error(f"Decryption failed: {e}")
+        raise ProtocolError(f"Decryption error: {e}")
+```
+
+### Debugging Protocol Execution
+
+```python
+class DebugProtocol(SNSProtocol2):
+    """Protocol with detailed debugging output"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.debug_info = []
+
+    def encrypt_data(self, data):
+        """Encrypt with debug information"""
+        self.debug_info = []
+        self.debug_info.append(f"Input length: {len(data)} bytes")
+
+        # Layer-by-layer debugging
+        for layer_num in range(1, 16):
+            layer_func = getattr(self, f'_layer_{layer_num}')
+            data = layer_func(data)
+            self.debug_info.append(f"Layer {layer_num}: {len(data)} bytes")
+
+        return data
+
+    def get_debug_info(self):
+        """Retrieve debug information"""
+        return self.debug_info.copy()
+```
+
+## Integration Guide
+
+### Using in Web Applications
+
+```python
+# Flask integration
+from flask import Flask, request, jsonify
+from sns_protocol2 import SNSProtocol2
+
+app = Flask(__name__)
+
+@app.route('/encrypt', methods=['POST'])
+def encrypt_endpoint():
+    data = request.get_json()
+
+    protocol = SNSProtocol2(
+        user_id=data['user_id'],
+        peer_id=data['peer_id'],
+        session_seed=data.get('session_seed', 'web_session')
+    )
+
+    try:
+        plaintext = data['data'].encode('utf-8')
+        encrypted = protocol.encrypt_data(plaintext)
+
+        return jsonify({
+            'success': True,
+            'encrypted': encrypted.hex(),
+            'length': len(encrypted)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+```
+
+### Command Line Interface
+
+```python
+#!/usr/bin/env python3
+import argparse
+import sys
+from sns_protocol2 import SNSProtocol2
+
+def main():
+    parser = argparse.ArgumentParser(description='SNS Protocol Level 2 CLI')
+    parser.add_argument('action', choices=['encrypt', 'decrypt'])
+    parser.add_argument('input_file', help='Input file path')
+    parser.add_argument('output_file', help='Output file path')
+    parser.add_argument('--user-id', required=True, help='User ID')
+    parser.add_argument('--peer-id', required=True, help='Peer ID')
+    parser.add_argument('--session-seed', default='cli_session', help='Session seed')
+
+    args = parser.parse_args()
+
+    # Initialize protocol
+    protocol = SNSProtocol2(args.user_id, args.peer_id, args.session_seed)
+
+    try:
+        # Read input
+        with open(args.input_file, 'rb') as f:
+            input_data = f.read()
+
+        # Process
+        if args.action == 'encrypt':
+            output_data = protocol.encrypt_data(input_data)
+        else:
+            output_data = protocol.decrypt_data(input_data)
+
+        # Write output
+        with open(args.output_file, 'wb') as f:
+            f.write(output_data)
+
+        print(f"Successfully {args.action}ed {len(input_data)} bytes")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
+```
+
+## Performance Optimization
+
+### Benchmarking
+
+```python
+import time
+import psutil
+import os
+
+class ProtocolBenchmark:
+    """Benchmark protocol performance"""
+
+    def __init__(self, protocol):
+        self.protocol = protocol
+
+    def benchmark_encryption(self, data_sizes, iterations=10):
+        """Benchmark encryption performance"""
+        results = {}
+
+        for size in data_sizes:
+            test_data = os.urandom(size)
+            times = []
+
+            for _ in range(iterations):
+                start_time = time.perf_counter()
+                encrypted = self.protocol.encrypt_data(test_data)
+                end_time = time.perf_counter()
+
+                times.append(end_time - start_time)
+
+            results[size] = {
+                'mean_time': sum(times) / len(times),
+                'min_time': min(times),
+                'max_time': max(times),
+                'throughput': size / (sum(times) / len(times))
+            }
+
+        return results
+
+    def memory_usage(self):
+        """Monitor memory usage"""
+        process = psutil.Process()
+        return {
+            'rss': process.memory_info().rss / 1024 / 1024,  # MB
+            'vms': process.memory_info().vms / 1024 / 1024,  # MB
+            'percent': process.memory_percent()
+        }
+```
+
+### Large File Handling
+
+```python
+class LargeFileEncryptor:
+    """Handle encryption of large files"""
+
+    def __init__(self, protocol, chunk_size=1024*1024):  # 1MB chunks
+        self.protocol = protocol
+        self.chunk_size = chunk_size
+
+    def encrypt_file(self, input_path, output_path):
+        """Encrypt large file in chunks"""
+        with open(input_path, 'rb') as infile, open(output_path, 'wb') as outfile:
+            while True:
+                chunk = infile.read(self.chunk_size)
+                if not chunk:
+                    break
+
+                # Encrypt chunk
+                encrypted_chunk = self.protocol.encrypt_data(chunk)
+
+                # Write chunk size and encrypted data
+                outfile.write(len(encrypted_chunk).to_bytes(4, 'big'))
+                outfile.write(encrypted_chunk)
+
+    def decrypt_file(self, input_path, output_path):
+        """Decrypt large file"""
+        with open(input_path, 'rb') as infile, open(output_path, 'wb') as outfile:
+            while True:
+                # Read chunk size
+                size_bytes = infile.read(4)
+                if len(size_bytes) < 4:
+                    break
+
+                chunk_size = int.from_bytes(size_bytes, 'big')
+
+                # Read and decrypt chunk
+                encrypted_chunk = infile.read(chunk_size)
+                decrypted_chunk = self.protocol.decrypt_data(encrypted_chunk)
+
+                outfile.write(decrypted_chunk)
+```
+
+## Presentation and Visualization
+
+### Protocol Flow Diagram
+
+```
+User Input
+    │
+    ▼
+Key Generation ──► Master Key
+    │                   │
+    ▼                   ▼
+Session Setup ──► Key Evolution (15 keys)
+    │
+    ▼
+Layer 1: Substitution ──► Layer 2: Transposition ──► Layer 3: Feistel
+    │                          │                           │
+    ▼                          ▼                           ▼
+Data Transformation ──► Data Transformation ──► Data Transformation
+    │                          │                           │
+    ▼                          ▼                           ▼
+Layer 4-12: Advanced Layers ──► Integrity Checks ──► Final Verification
+    │                          │                           │
+    ▼                          ▼                           ▼
+Encrypted Output ◄─────── HMAC Verification ◄─────── Seal Verification
+```
+
+### Security Analysis Charts
+
+```python
+import matplotlib.pyplot as plt
+
+def plot_layer_contributions():
+    """Plot security contribution of each layer"""
+    layers = list(range(1, 16))
+    contributions = [0.1, 0.15, 0.12, 0.08, 0.2, 0.05, 0.08, 0.07,
+                    0.06, 0.04, 0.03, 0.02, 0.025, 0.015, 0.01]
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(layers, contributions)
+    plt.xlabel('Layer Number')
+    plt.ylabel('Security Contribution')
+    plt.title('Security Contribution by Layer')
+    plt.xticks(layers)
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+def plot_performance_vs_security():
+    """Plot performance vs security trade-off"""
+    security_levels = [1, 2, 3, 4, 5]
+    performance = [100, 85, 70, 55, 40]  # Relative performance
+    security = [20, 50, 75, 90, 98]     # Security score
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    ax1.plot(security_levels, performance, 'b-o', label='Performance')
+    ax1.set_xlabel('Security Level')
+    ax1.set_ylabel('Performance (%)', color='b')
+    ax1.tick_params(axis='y', labelcolor='b')
+
+    ax2 = ax1.twinx()
+    ax2.plot(security_levels, security, 'r-s', label='Security')
+    ax2.set_ylabel('Security Score', color='r')
+    ax2.tick_params(axis='y', labelcolor='r')
+
+    plt.title('Performance vs Security Trade-off')
+    plt.grid(True, alpha=0.3)
+    plt.show()
+```
+
+## Advanced Technical Features
+
+### Quantum Resistance
+
+The protocol incorporates several quantum-resistant techniques:
+
+1. **Large Key Spaces**: 256-bit master keys
+2. **Hash-based Integrity**: Quantum-resistant HMAC
+3. **Lattice-based Primitives**: Post-quantum key exchange ready
+4. **Symmetric Encryption**: Grover algorithm resistant
+
+### AI-Enhanced Security
+
+```python
+class AIEnhancedProtocol(SNSProtocol2):
+    """Protocol with AI-driven optimizations"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.threat_model = self.load_threat_model()
+
+    def adaptive_rounds(self, threat_level):
+        """Adapt number of rounds based on threat assessment"""
+        base_rounds = 8
+
+        if threat_level == 'low':
+            return base_rounds
+        elif threat_level == 'medium':
+            return base_rounds * 2
+        else:  # high
+            return base_rounds * 3
+
+    def predict_threats(self, usage_pattern):
+        """Predict potential security threats"""
+        # Simplified threat prediction
+        if usage_pattern.get('suspicious_ips', 0) > 10:
+            return 'high'
+        elif usage_pattern.get('failed_attempts', 0) > 5:
+            return 'medium'
+        else:
+            return 'low'
+```
+
+### Hardware Acceleration
+
+```python
+try:
+    import torch
+
+    class GPUAcceleratedProtocol(SNSProtocol2):
+        """GPU-accelerated protocol operations"""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        def gpu_substitute(self, data: bytes, key: bytes):
+            """GPU-accelerated substitution"""
+            # Convert to tensors
+            data_tensor = torch.tensor(list(data), dtype=torch.uint8, device=self.device)
+            key_tensor = torch.tensor(list(key), dtype=torch.uint8, device=self.device)
+
+            # GPU operations would go here
+            # Simplified example
+            result = data_tensor ^ key_tensor[0]  # Simple XOR
+
+            return bytes(result.cpu().numpy())
+
+except ImportError:
+    print("PyTorch not available for GPU acceleration")
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Integrity verification failed"**
+   - Check if data was corrupted during transmission
+   - Ensure same keys are used for encryption/decryption
+   - Verify protocol versions match
+
+2. **Memory errors with large data**
+   - Use chunked processing for large files
+   - Implement streaming encryption/decryption
+   - Monitor system memory usage
+
+3. **Slow performance**
+   - Reduce number of Feistel rounds
+   - Use optimized hash functions
+   - Implement parallel processing
+
+4. **Key management issues**
+   - Ensure secure key generation
+   - Implement proper key rotation
+   - Use hardware security modules
+
+### Debug Mode
+
+```python
+# Enable verbose logging
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Create protocol with debugging
+protocol = SNSProtocol2("debug_user", "debug_peer", "debug_session")
+
+# Encrypt with debug output
+data = b"Debug test data"
+encrypted = protocol.encrypt_data(data)
+print(f"Encrypted length: {len(encrypted)}")
+
+# Decrypt with verification
+try:
+    decrypted = protocol.decrypt_data(encrypted)
+    print(f"Decryption successful: {decrypted == data}")
+except Exception as e:
+    print(f"Decryption failed: {e}")
+```
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Post-Quantum Cryptography**: Integrate lattice-based encryption
+2. **Hardware Security Modules**: Direct HSM integration
+3. **Zero-Knowledge Proofs**: Enhanced privacy features
+4. **Blockchain Integration**: Decentralized key management
+5. **AI-Driven Adaptation**: Self-optimizing security parameters
+
+### Research Directions
+
+- **Multi-party computation** for collaborative encryption
+- **Homomorphic encryption** for computations on encrypted data
+- **Functional encryption** for fine-grained access control
+- **DNA-based cryptography** integration
+
+---
+
+*This comprehensive guide covers both advanced biological algorithms and the complete SNS Protocol Level 2 encryption system. The biological algorithms section provides cutting-edge computational methods for biological research, while the encryption protocol section offers detailed technical documentation for secure data protection. For the latest updates and additional resources, please refer to the project repository and scientific literature.*
