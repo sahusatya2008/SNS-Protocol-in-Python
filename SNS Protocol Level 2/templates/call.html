@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Call {{ callee }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        video { width: 300px; }
+    </style>
+</head>
+<body>
+    <h1>Calling {{ callee }}</h1>
+    <button id="initiateBtn" onclick="initiateCall()">Call</button>
+    <button id="acceptBtn" style="display:none;" onclick="acceptCall()">Accept</button>
+    <button id="declineBtn" style="display:none;" onclick="declineCall()">Decline</button>
+    <button id="hangUpBtn" style="display:none;" onclick="hangUp()">Hang Up</button>
+    <button id="muteBtn" style="display:none;" onclick="toggleMute()">Mute</button>
+
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+
+    <script>
+        const socket = io();
+        const callee = '{{ callee }}';
+        let localStream;
+        let peerConnection;
+        let isMuted = false;
+        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        socket.on('incoming_call', (data) => {
+            if (data.caller === callee) {
+                document.getElementById('acceptBtn').style.display = 'block';
+                document.getElementById('declineBtn').style.display = 'block';
+                document.getElementById('initiateBtn').style.display = 'none';
+            }
+        });
+
+        socket.on('call_accepted', () => {
+            startCall();
+        });
+
+        socket.on('call_declined', () => {
+            alert('Call declined');
+        });
+
+        socket.on('call_started', () => {
+            document.getElementById('hangUpBtn').style.display = 'block';
+            document.getElementById('muteBtn').style.display = 'block';
+        });
+
+        socket.on('call_ended', () => {
+            endCall();
+        });
+
+        socket.on('offer', (data) => {
+            handleOffer(data);
+        });
+
+        socket.on('answer', (data) => {
+            peerConnection.setRemoteDescription(data);
+        });
+
+        socket.on('ice-candidate', (data) => {
+            peerConnection.addIceCandidate(data);
+        });
+
+        async function initiateCall() {
+            socket.emit('initiate_call', { callee });
+        }
+
+        async function acceptCall() {
+            socket.emit('accept_call', { caller: callee });
+            document.getElementById('acceptBtn').style.display = 'none';
+            document.getElementById('declineBtn').style.display = 'none';
+            startCall();
+        }
+
+        function declineCall() {
+            socket.emit('decline_call', { caller: callee });
+            document.getElementById('acceptBtn').style.display = 'none';
+            document.getElementById('declineBtn').style.display = 'none';
+        }
+
+        async function startCall() {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+            peerConnection = new RTCPeerConnection(config);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', event.candidate);
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            if (callee !== '{{ current_user.username }}') {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('offer', offer);
+            }
+        }
+
+        async function handleOffer(offer) {
+            await peerConnection.setRemoteDescription(offer);
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('answer', answer);
+        }
+
+        function hangUp() {
+            socket.emit('hang_up', { peer: callee });
+            endCall();
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            document.getElementById('muteBtn').innerText = isMuted ? 'Unmute' : 'Mute';
+        }
+
+        function endCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('hangUpBtn').style.display = 'none';
+            document.getElementById('muteBtn').style.display = 'none';
+        }
+    </script>
+    <a href="{{ url_for('index') }}">Back</a>
+</body>
+</html>

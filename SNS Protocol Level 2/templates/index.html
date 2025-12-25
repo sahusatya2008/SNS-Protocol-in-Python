@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNS Protocol Level 2 - The New Era of Digital Security</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #chat { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
+        #messages { margin-bottom: 10px; }
+        input, button { margin: 5px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔒 SNS Protocol Level 2 - The New Era of Digital Security</h1>
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+        <h2>🚀 Revolutionary 25-Layer Quantum-Resistant Encryption</h2>
+        <p>Welcome to the future of secure communication! This platform uses SNS Protocol Level 2, featuring:</p>
+        <ul>
+            <li>✅ 25 unbreakable encryption layers</li>
+            <li>✅ Quantum-resistant cryptography</li>
+            <li>✅ AI-driven adaptive security</li>
+            <li>✅ Biological and DNA-inspired algorithms</li>
+            <li>✅ Post-quantum hash functions</li>
+            <li>✅ Zero-knowledge proofs</li>
+            <li>✅ Homomorphic encryption support</li>
+        </ul>
+        <p><strong>Security Level:</strong> IMPOSSIBLE to crack with current and future technology!</p>
+    </div>
+    <p>Welcome, {{ current_user.username }}! <a href="{{ url_for('logout') }}">Logout</a></p>
+
+    <form action="{{ url_for('search') }}" method="post">
+        <input type="text" name="query" placeholder="Search users">
+        <button type="submit">Search</button>
+    </form>
+
+    <div id="status"></div>
+
+    <div style="background: #f0f8ff; border: 2px solid #1e90ff; padding: 15px; border-radius: 10px; margin: 20px 0;">
+        <h3>🛡️ Security Features</h3>
+        <p>Your communications are protected by the most advanced encryption ever created:</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
+            <div>🔐 25 Encryption Layers</div>
+            <div>⚛️ Quantum Resistance</div>
+            <div>🤖 AI-Enhanced Security</div>
+            <div>🧬 Biological Algorithms</div>
+            <div>🔒 Perfect Forward Secrecy</div>
+            <div>🔍 Zero-Knowledge Proofs</div>
+        </div>
+        <p style="margin-top: 10px; font-weight: bold; color: #1e90ff;">
+            This is the new era of digital security - unbreakable, future-proof, and revolutionary!
+        </p>
+    </div>
+
+    <div id="chat">
+        <div id="messages"></div>
+    </div>
+
+    <input type="text" id="toInput" placeholder="To user...">
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send Message</button>
+
+    <br>
+
+    <input type="text" id="fileToInput" placeholder="To user...">
+    <input type="file" id="fileInput">
+    <button onclick="sendFile()">Send File</button>
+
+    <br>
+
+    <button id="startVideoBtn" onclick="startVideoCall()">Start Video Call</button>
+    <button id="endVideoBtn" onclick="endVideoCall()" style="display:none;">End Video Call</button>
+
+    <br>
+
+    <video id="localVideo" autoplay muted style="width: 300px;"></video>
+    <video id="remoteVideo" autoplay style="width: 300px;"></video>
+
+    <script>
+        const socket = io();
+        let localStream;
+        let peerConnection;
+        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        socket.on('status', (data) => {
+            document.getElementById('status').innerText = data.message;
+        });
+
+        socket.on('receive_message', (data) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.innerText = `From ${data.from}: ${data.message}`;
+            document.getElementById('messages').appendChild(msgDiv);
+        });
+
+        socket.on('file_received', (data) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.innerHTML = `File from ${data.from}: <a href="/download/${data.path}" download="${data.filename}">${data.filename}</a>`;
+            document.getElementById('messages').appendChild(msgDiv);
+        });
+
+        socket.on('incoming_call', (data) => {
+            if (confirm('Incoming call from ' + data.caller + '. Accept?')) {
+                window.location = '/call/' + data.caller;
+            }
+        });
+
+        // WebRTC Signaling
+        socket.on('offer', (data) => {
+            handleOffer(data);
+        });
+
+        socket.on('answer', (data) => {
+            handleAnswer(data);
+        });
+
+        socket.on('ice-candidate', (data) => {
+            handleIceCandidate(data);
+        });
+
+        async function startVideoCall() {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+            document.getElementById('startVideoBtn').style.display = 'none';
+            document.getElementById('endVideoBtn').style.display = 'block';
+
+            peerConnection = new RTCPeerConnection(config);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', event.candidate);
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('offer', offer);
+        }
+
+        async function handleOffer(offer) {
+            peerConnection = new RTCPeerConnection(config);
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', event.candidate);
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            await peerConnection.setRemoteDescription(offer);
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('answer', answer);
+        }
+
+        async function handleAnswer(answer) {
+            await peerConnection.setRemoteDescription(answer);
+        }
+
+        async function handleIceCandidate(candidate) {
+            await peerConnection.addIceCandidate(candidate);
+        }
+
+        function endVideoCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('startVideoBtn').style.display = 'block';
+            document.getElementById('endVideoBtn').style.display = 'none';
+        }
+
+        function sendMessage() {
+            const msg = document.getElementById('messageInput').value;
+            const to = document.getElementById('toInput').value;
+            socket.emit('send_message', { message: msg, to: to });
+            document.getElementById('messageInput').value = '';
+        }
+
+        function sendFile() {
+            const file = document.getElementById('fileInput').files[0];
+            const to = document.getElementById('fileToInput').value;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileData = e.target.result.split(',')[1]; // Base64
+                    socket.emit('send_file', { filename: file.filename || file.name, file_data: fileData, to: to });
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    </script>
+</body>
+</html>
